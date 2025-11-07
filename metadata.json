@@ -3,7 +3,7 @@
   "description": "A keyboard driven window management tool.",
   "uuid": "glaunchv2@casta.dev",
   "url": "https://github.com/lcasta7/glaunchv2",
-  "shell-version": ["46", "47"],
+    "shell-version": ["46", "47", "48"],
   "gettext-domain": "glaunchv2@casta.dev",
   "settings-schema": "org.gnome.shell.extensions.glaunchv2"
 }

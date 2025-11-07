@@ -8,13 +8,11 @@ import Config from "./config.js";
 import { App, AppCollection } from "./apps.js";
 
 export default class Launcher {
-
 	private _apps;
 	private _settings: Gio.Settings;
 	private _bounded = new Set<string>();
 	private _other = "other";
 	private _centerMouse = false;
-
 
 	constructor(config: Config, settings: Gio.Settings) {
 		this._settings = settings;
@@ -78,23 +76,25 @@ export default class Launcher {
 
 	private _handleApp(appName: string) {
 		const focusedName = this._retrieveMapName(global.display.focus_window);
-		const appDesktopName = this._retrieveDesktopName(appName)
+		let appDesktopName = this._retrieveDesktopName(appName)
 
-		console.debug(`[GlaunchV2] focusedName: ${focusedName}`);
-		console.debug(`[GlaunchV2] appName: ${appName}`);
-		console.debug(`[GlaunchV2] appDesktopName: ${appDesktopName}`);
-		console.debug(`[GlaunchV2] _apps has ${appDesktopName}:`, this._apps.has(appDesktopName));
+		if (appDesktopName) {
+			appDesktopName = appDesktopName.replace(/\s*\([^)]*\)/, '');
+		}
 
 		if (!appDesktopName) {
-			console.debug(`[GlaunchV2] Error: No desktop name found for ${appName}.desktop`);
+			console.error(`[GlaunchV2-New] Error: No desktop name found for ${appName}.desktop`);
 			return;
 		}
 
 		if (focusedName === appDesktopName && this._apps.has(appDesktopName)) {
+			console.error(`[GlaunchV2-New] Taking path: goNext()`);
 			this._apps.get(appDesktopName)?.goNext();
 		} else if (this._apps.has(appDesktopName)) {
+			console.error(`[GlaunchV2-New] Taking path: switchToApp()`);
 			this._apps.get(appDesktopName)?.switchToApp();
 		} else {
+			console.error(`[GlaunchV2-New] Taking path: launch new app`);
 			Gio.DesktopAppInfo.new(appName + ".desktop")?.launch([], null);
 		}
 	}
@@ -120,9 +120,11 @@ export default class Launcher {
 						Meta.KeyBindingFlags.NONE,
 						Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
 						() => this._handleApp(bind.app!))
+
 					const appName = this._retrieveDesktopName(bind.app!)
 					if (appName && appName !== this._other) {
-						this._bounded.add(appName);
+						const normalizedAppName = appName.replace(/\s*\([^)]*\)/, '');
+						this._bounded.add(normalizedAppName);
 					}
 					break;
 				case "win_other":
@@ -199,6 +201,10 @@ export default class Launcher {
 			if (!appInfo) return this._other;
 
 			const appDesktopName = appInfo.get_locale_string("Name") || "";
+			console.warn(`[GlaunchV2-New] Window desktop name: ${appDesktopName}`);
+			console.warn(`[GlaunchV2-New] Bounded apps:`, Array.from(this._bounded));
+			console.warn(`[GlaunchV2-New] Is bounded:`, this._bounded.has(appDesktopName));
+
 			return this._bounded.has(appDesktopName) ? appDesktopName : this._other;
 		} catch (error) {
 			console.warn(`[GlaunchV2] Error retrieving map name for window: ${error}`);
@@ -207,9 +213,18 @@ export default class Launcher {
 	}
 
 	private _retrieveDesktopName(appName: string): string {
+		console.error(`[GlaunchV2-New] _retrieveDesktopName called with: ${appName}`);
 		if (!appName) return ""
 		if (appName === this._other) return this._other
-		const appInfo = Gio.DesktopAppInfo.new(appName + ".desktop");
-		return appInfo?.get_locale_string("Name") ?? "";
+
+		const desktopFile = appName + ".desktop";
+		console.error(`[GlaunchV2-New] Looking for desktop file: ${desktopFile}`);
+
+		const appInfo = Gio.DesktopAppInfo.new(desktopFile);
+		const result = appInfo?.get_locale_string("Name") ?? "";
+		console.error(`[GlaunchV2-New] Desktop file result: ${result}`);
+
+		return result;
 	}
+
 }
