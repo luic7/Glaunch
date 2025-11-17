@@ -1,11 +1,15 @@
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
 
-const DEFAULT_CONFIG = `# App Shortcuts
-# Apps
-launch f9 firefox_firefox
-launch f10 emacs
-launch f11 kitty
+const DEFAULT_CONFIG = `# GlaunchV2 Configuration
+# Format: <action> <key> <app_id>
+# App IDs can be with or without .desktop suffix
+# Find app IDs in: /usr/share/applications, /var/lib/snapd/desktop/applications, /var/lib/flatpak/exports/share/applications
+
+# App Shortcuts
+launch f9 firefox_firefox.desktop
+launch f10 emacsclient.desktop
+launch f11 kitty.desktop
 
 # Window Management
 win_prev f4

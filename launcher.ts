@@ -8,14 +8,18 @@ import Config from "./config.js";
 import { App, AppCollection } from "./apps.js";
 
 export default class Launcher {
-	private _apps;
+	private _apps: Map<string, AppCollection>;
 	private _settings: Gio.Settings;
-	private _bounded = new Set<string>();
+	private _boundedAppIds = new Set<string>();
 	private _other = "other";
 	private _centerMouse = false;
+	private _windowTracker: Shell.WindowTracker;
+	private _appSystem: Shell.AppSystem;
 
 	constructor(config: Config, settings: Gio.Settings) {
 		this._settings = settings;
+		this._windowTracker = Shell.WindowTracker.get_default();
+		this._appSystem = Shell.AppSystem.get_default();
 
 		try {
 			this._bindKeys(config);
@@ -25,25 +29,78 @@ export default class Launcher {
 		}
 	}
 
+	/**
+	 * Normalizes app identifier to desktop file ID format
+	 * "firefox_firefox" -> "firefox_firefox.desktop"
+	 * "firefox_firefox.desktop" -> "firefox_firefox.desktop"
+	 */
+	private _normalizeAppId(appId: string): string {
+		if (appId === this._other) return this._other;
+		return appId.endsWith('.desktop') ? appId : `${appId}.desktop`;
+	}
+
+	/**
+	 * Normalizes app name by removing parenthetical suffixes
+	 * "Emacs (Client)" -> "Emacs"
+	 */
+	private _normalizeAppName(appName: string): string {
+		return appName.replace(/\s*\([^)]*\)/, '');
+	}
+
+	/**
+	 * Gets the app ID (desktop file ID) for a window
+	 * Returns "other" if window doesn't belong to a bound app
+	 */
+	private _getAppIdForWindow(win: Meta.Window | null): string {
+		if (!win) return this._other;
+
+		try {
+			const shellApp = this._windowTracker.get_window_app(win);
+			if (!shellApp) return this._other;
+
+			let appId = shellApp.get_id();
+			if (!appId) return this._other;
+
+			// Normalize the app ID by removing parentheticals
+			// This handles cases like emacsclient showing as "Emacs (Client)"
+			const normalizedId = this._normalizeAppName(appId);
+
+			// Check both the original and normalized app ID
+			if (this._boundedAppIds.has(appId)) {
+				return appId;
+			}
+
+			// Check if any bound app matches the normalized name
+			for (const boundId of this._boundedAppIds) {
+				const normalizedBoundId = this._normalizeAppName(boundId);
+				if (normalizedId.toLowerCase().includes(normalizedBoundId.toLowerCase().replace('.desktop', '')) ||
+				    normalizedBoundId.toLowerCase().includes(normalizedId.toLowerCase().replace('.desktop', ''))) {
+					return boundId;
+				}
+			}
+
+			return this._other;
+		} catch (error) {
+			console.warn(`[GlaunchV2] Error getting app ID for window: ${error}`);
+			return this._other;
+		}
+	}
+
 	storeApp(win: Meta.Window | null) {
 		if (!win) return;
 		if (win.get_wm_class_instance() === 'gjs') return;
 		if (win.get_window_type() !== Meta.WindowType.NORMAL) return;
 
 		try {
-			const mapName = this._retrieveMapName(win);
-			if (!mapName) {
-				console.debug('[GlaunchV2] Could not determine map name for window, skipping');
-				return;
-			}
+			const appId = this._getAppIdForWindow(win);
 
-			if (this._apps.has(mapName)) {
-				console.debug(`[GlaunchV2] Adding window to existing collection: ${mapName}`);
-				this._apps.get(mapName)?.storeApp(win);
+			if (this._apps.has(appId)) {
+				console.debug(`[GlaunchV2] Adding window to ${appId}`);
+				this._apps.get(appId)?.storeApp(win);
 			} else {
-				console.debug(`[GlaunchV2] Creating new collection for: ${mapName}`);
+				console.debug(`[GlaunchV2] Creating new collection for ${appId}`);
 				const app = new App(win);
-				this._apps.set(mapName, new AppCollection(app, this._centerMouse));
+				this._apps.set(appId, new AppCollection(app, this._centerMouse));
 			}
 		} catch (error) {
 			console.warn(`[GlaunchV2] Error storing app: ${error}`);
@@ -53,20 +110,16 @@ export default class Launcher {
 	deleteApp(win: Meta.Window | null) {
 		if (!win) return;
 		try {
-			const mapName = this._retrieveMapName(win);
-			if (!mapName) {
-				console.debug('[GlaunchV2] Could not determine map name for window, skipping deletion');
-				return;
-			}
+			const appId = this._getAppIdForWindow(win);
+			const appCol = this._apps.get(appId);
 
-			const appCol = this._apps.get(mapName);
 			if (appCol) {
-				console.debug(`[GlaunchV2] Removing window from collection: ${mapName}`);
+				console.debug(`[GlaunchV2] Removing window from ${appId}`);
 				appCol.deleteApp(win);
 
 				if (appCol.size() === 0) {
-					console.debug(`[GlaunchV2] Removing empty collection: ${mapName}`);
-					this._apps.delete(mapName);
+					console.debug(`[GlaunchV2] Removing empty collection: ${appId}`);
+					this._apps.delete(appId);
 				}
 			}
 		} catch (error) {
@@ -74,28 +127,30 @@ export default class Launcher {
 		}
 	}
 
-	private _handleApp(appName: string) {
-		const focusedName = this._retrieveMapName(global.display.focus_window);
-		let appDesktopName = this._retrieveDesktopName(appName)
+	private _handleApp(appId: string) {
+		const normalizedAppId = this._normalizeAppId(appId);
+		const focusedAppId = this._getAppIdForWindow(global.display.focus_window);
 
-		if (appDesktopName) {
-			appDesktopName = appDesktopName.replace(/\s*\([^)]*\)/, '');
-		}
+		console.debug(`[GlaunchV2] Handling app: ${normalizedAppId}`);
+		console.debug(`[GlaunchV2] Currently focused: ${focusedAppId}`);
 
-		if (!appDesktopName) {
-			console.error(`[GlaunchV2-New] Error: No desktop name found for ${appName}.desktop`);
-			return;
-		}
-
-		if (focusedName === appDesktopName && this._apps.has(appDesktopName)) {
-			console.error(`[GlaunchV2-New] Taking path: goNext()`);
-			this._apps.get(appDesktopName)?.goNext();
-		} else if (this._apps.has(appDesktopName)) {
-			console.error(`[GlaunchV2-New] Taking path: switchToApp()`);
-			this._apps.get(appDesktopName)?.switchToApp();
+		if (focusedAppId === normalizedAppId && this._apps.has(normalizedAppId)) {
+			// Same app focused -> cycle to next window
+			console.debug(`[GlaunchV2] Cycling to next window`);
+			this._apps.get(normalizedAppId)?.goNext();
+		} else if (this._apps.has(normalizedAppId)) {
+			// App has windows but not focused -> switch to it
+			console.debug(`[GlaunchV2] Switching to app`);
+			this._apps.get(normalizedAppId)?.switchToApp();
 		} else {
-			console.error(`[GlaunchV2-New] Taking path: launch new app`);
-			Gio.DesktopAppInfo.new(appName + ".desktop")?.launch([], null);
+			// App not running -> launch it
+			console.debug(`[GlaunchV2] Launching new instance`);
+			const shellApp = this._appSystem.lookup_app(normalizedAppId);
+			if (shellApp) {
+				shellApp.activate();
+			} else {
+				console.error(`[GlaunchV2] Could not find app: ${normalizedAppId}`);
+			}
 		}
 	}
 
@@ -103,15 +158,14 @@ export default class Launcher {
 		const mruWindows = global.display.get_tab_list(Meta.TabList.NORMAL, null);
 		if (mruWindows.length < 2) return;
 		new App(mruWindows[1]).focus(this._centerMouse);
-
 	}
 
 	private _deleteWin() {
-		global.display.focus_window.delete(global.get_current_time());
+		global.display.focus_window?.delete(global.get_current_time());
 	}
 
 	private _bindKeys(config: Config) {
-		config.entries.forEach((bind, _) => {
+		config.entries.forEach((bind) => {
 			switch (bind.act) {
 				case "launch":
 					Main.wm.addKeybinding(
@@ -119,57 +173,69 @@ export default class Launcher {
 						this._settings,
 						Meta.KeyBindingFlags.NONE,
 						Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
-						() => this._handleApp(bind.app!))
+						() => this._handleApp(bind.app!)
+					);
 
-					const appName = this._retrieveDesktopName(bind.app!)
-					if (appName && appName !== this._other) {
-						const normalizedAppName = appName.replace(/\s*\([^)]*\)/, '');
-						this._bounded.add(normalizedAppName);
+					// Store the normalized app ID in our bounded set
+					const appId = this._normalizeAppId(bind.app!);
+					if (appId !== this._other) {
+						this._boundedAppIds.add(appId);
+						console.debug(`[GlaunchV2] Bound app: ${appId}`);
 					}
 					break;
+
 				case "win_other":
 					Main.wm.addKeybinding(
 						bind.key!,
 						this._settings,
 						Meta.KeyBindingFlags.NONE,
 						Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
-						() => this._handleApp(this._other))
+						() => this._handleApp(this._other)
+					);
 					break;
+
 				case "win_delete":
 					Main.wm.addKeybinding(
 						bind.key!,
 						this._settings,
 						Meta.KeyBindingFlags.NONE,
 						Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
-						() => this._deleteWin())
+						() => this._deleteWin()
+					);
 					break;
+
 				case "win_prev":
 					Main.wm.addKeybinding(
 						bind.key!,
 						this._settings,
 						Meta.KeyBindingFlags.NONE,
 						Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
-						() => this._goToPrev())
+						() => this._goToPrev()
+					);
 					break;
-				case "win_center_mouse":
-					this._centerMouse = true
-					break
-			}
 
-		})
+				case "win_center_mouse":
+					this._centerMouse = true;
+					break;
+			}
+		});
 	}
 
 	private _startUpMapping(): Map<string, AppCollection> {
-		let openedAppsMap = new Map<string, AppCollection>();
-		let openedApps = global.display.get_tab_list(Meta.TabList.NORMAL, null);
+		const openedAppsMap = new Map<string, AppCollection>();
+		const openedApps = global.display.get_tab_list(Meta.TabList.NORMAL, null);
 
-		openedApps.forEach(appInstance => {
+		openedApps.forEach(window => {
 			try {
-				const mapName = this._retrieveMapName(appInstance);
-				openedAppsMap
-					.has(mapName)
-					? openedAppsMap.get(mapName)!.storeApp(appInstance)
-					: openedAppsMap.set(mapName, new AppCollection(new App(appInstance), this._centerMouse));
+				const appId = this._getAppIdForWindow(window);
+				if (openedAppsMap.has(appId)) {
+					openedAppsMap.get(appId)!.storeApp(window);
+				} else {
+					openedAppsMap.set(
+						appId,
+						new AppCollection(new App(window), this._centerMouse)
+					);
+				}
 			} catch (error) {
 				console.warn(`[GlaunchV2] Error mapping window: ${error}`);
 			}
@@ -177,54 +243,4 @@ export default class Launcher {
 
 		return openedAppsMap;
 	}
-
-	private _retrieveMapName(win: Meta.Window): string {
-		if (!win) return "";
-
-		try {
-			const wmClass = win.get_wm_class();
-			if (!wmClass) return "";
-
-			const appName = wmClass.toLowerCase().replace(/[0-9]/g, '');
-
-			const searchResults = Gio.DesktopAppInfo.search(appName);
-			if (!searchResults || !searchResults[0] || searchResults[0].length === 0) {
-				return this._other;
-			}
-
-			const appFileName = searchResults[0].reduce(
-				(shortest, current) => current.length < shortest.length ? current : shortest,
-				searchResults[0][0]
-			);
-
-			const appInfo = appFileName ? Gio.DesktopAppInfo.new(appFileName) : null;
-			if (!appInfo) return this._other;
-
-			const appDesktopName = appInfo.get_locale_string("Name") || "";
-			console.warn(`[GlaunchV2-New] Window desktop name: ${appDesktopName}`);
-			console.warn(`[GlaunchV2-New] Bounded apps:`, Array.from(this._bounded));
-			console.warn(`[GlaunchV2-New] Is bounded:`, this._bounded.has(appDesktopName));
-
-			return this._bounded.has(appDesktopName) ? appDesktopName : this._other;
-		} catch (error) {
-			console.warn(`[GlaunchV2] Error retrieving map name for window: ${error}`);
-			return "";
-		}
-	}
-
-	private _retrieveDesktopName(appName: string): string {
-		console.error(`[GlaunchV2-New] _retrieveDesktopName called with: ${appName}`);
-		if (!appName) return ""
-		if (appName === this._other) return this._other
-
-		const desktopFile = appName + ".desktop";
-		console.error(`[GlaunchV2-New] Looking for desktop file: ${desktopFile}`);
-
-		const appInfo = Gio.DesktopAppInfo.new(desktopFile);
-		const result = appInfo?.get_locale_string("Name") ?? "";
-		console.error(`[GlaunchV2-New] Desktop file result: ${result}`);
-
-		return result;
-	}
-
 }
