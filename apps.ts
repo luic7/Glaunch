@@ -78,6 +78,16 @@ export class AppCollection {
 	size(): number {
 		return this._col.length;
 	}
+
+	setHead(win: Meta.Window): boolean {
+		const index = this._col.findIndex(app => app.equals(win));
+		if (index === -1) {
+			return false;
+		}
+		this._hIndex = index;
+		this._head = this._col[this._hIndex];
+		return true;
+	}
 }
 
 export class App {

@@ -2,43 +2,71 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.glaunchv2" path="/org/gnome/shell/extensions/glaunchv2/">
+    <!-- Shortcuts stored as JSON array: [{"app": "firefox.desktop", "key": "f9"}, ...] -->
+    <key name="shortcuts" type="s">
+      <default>''</default>
+      <summary>Custom shortcuts configuration</summary>
+      <description>JSON array of shortcut configurations with app and key bindings</description>
+    </key>
+
+    <!-- Window management settings -->
+    <key name="win-prev-key" type="s">
+      <default>'f4'</default>
+      <summary>Previous window key</summary>
+      <description>Function key for switching to previous window. Empty to disable.</description>
+    </key>
+    <key name="win-other-key" type="s">
+      <default>'f12'</default>
+      <summary>Cycle other windows key</summary>
+      <description>Function key for cycling non-configured windows. Empty to disable.</description>
+    </key>
+    <key name="win-delete-key" type="s">
+      <default>'f3'</default>
+      <summary>Close window key</summary>
+      <description>Function key for closing current window. Empty to disable.</description>
+    </key>
+    <key name="win-center-mouse" type="b">
+      <default>true</default>
+      <summary>Center mouse on focus</summary>
+      <description>Whether to center the mouse cursor when focusing a window</description>
+    </key>
+
+    <!-- Function keys for keybinding registration -->
     <key name="f1" type="as">
-	  <default><![CDATA[['F1']]]></default>
+      <default><![CDATA[['F1']]]></default>
     </key>
     <key name="f2" type="as">
-	  <default><![CDATA[['F2']]]></default>
+      <default><![CDATA[['F2']]]></default>
     </key>
     <key name="f3" type="as">
-	  <default><![CDATA[['F3']]]></default>
+      <default><![CDATA[['F3']]]></default>
     </key>
     <key name="f4" type="as">
-	  <default><![CDATA[['F4']]]></default>
+      <default><![CDATA[['F4']]]></default>
     </key>
-
     <key name="f5" type="as">
-	  <default><![CDATA[['F5']]]></default>
+      <default><![CDATA[['F5']]]></default>
     </key>
     <key name="f6" type="as">
-	  <default><![CDATA[['F6']]]></default>
+      <default><![CDATA[['F6']]]></default>
     </key>
     <key name="f7" type="as">
-	  <default><![CDATA[['F7']]]></default>
+      <default><![CDATA[['F7']]]></default>
     </key>
     <key name="f8" type="as">
-	  <default><![CDATA[['F8']]]></default>
+      <default><![CDATA[['F8']]]></default>
     </key>
-
     <key name="f9" type="as">
-	  <default><![CDATA[['F9']]]></default>
+      <default><![CDATA[['F9']]]></default>
     </key>
     <key name="f10" type="as">
-	  <default><![CDATA[['F10']]]></default>
+      <default><![CDATA[['F10']]]></default>
     </key>
     <key name="f11" type="as">
-	  <default><![CDATA[['F11']]]></default>
+      <default><![CDATA[['F11']]]></default>
     </key>
     <key name="f12" type="as">
-	  <default><![CDATA[['F12']]]></default>
+      <default><![CDATA[['F12']]]></default>
     </key>
   </schema>
 </schemalist>

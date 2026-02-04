@@ -9,5 +9,5 @@
     "lib": ["ES2022"]
   },
   "include": ["ambient.d.ts"],
-  "files": ["extension.ts", "config.ts", "launcher.ts", "apps.ts"]
+  "files": ["extension.ts", "config.ts", "launcher.ts", "apps.ts", "prefs.ts"]
 }
