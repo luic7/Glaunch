@@ -127,6 +127,22 @@ export default class Launcher {
 		}
 	}
 
+	promoteWindow(win: Meta.Window | null) {
+		if (!win) return;
+		if (win.get_window_type() !== Meta.WindowType.NORMAL) return;
+
+		try {
+			const appId = this._getAppIdForWindow(win);
+			const appCol = this._apps.get(appId);
+
+			if (appCol && appCol.setHead(win)) {
+				console.debug(`[GlaunchV2] Promoted window to head for ${appId}`);
+			}
+		} catch (error) {
+			console.warn(`[GlaunchV2] Error promoting window: ${error}`);
+		}
+	}
+
 	private _handleApp(appId: string) {
 		const normalizedAppId = this._normalizeAppId(appId);
 		const focusedAppId = this._getAppIdForWindow(global.display.focus_window);
