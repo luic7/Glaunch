@@ -1,92 +1,109 @@
 # Glaunch
 
-A GNOME Shell extension for keyboard-driven window management and application launching with TypeScript.
+A GNOME Shell extension for keyboard-driven window management. Assign a function key to each app you use, and press it to launch, focus, or cycle through its windows.
 
-## Overview
+## Why
 
-Glaunch allows you to:
+Tiling window managers promise efficient screen usage but come with real costs: dozens of keybindings to memorize, conflicts with application shortcuts, and hours of configuration. Xah Lee makes a [compelling case against them](http://xahlee.info/linux/why_tiling_window_manager_sucks.html).
 
-- Launch applications with customizable keyboard shortcuts
-- Quickly navigate between windows of the same application
-- Switch to previously used windows
-- Delete windows with keyboard shortcuts
-- Auto-center the mouse pointer when switching between windows
+Glaunch takes a simpler approach. Instead of managing window layout, you assign one key per app. Press F9 to get to Firefox. Press F10 to get to your editor. If the app isn't running, it launches. If it is, it focuses. If it has multiple windows, it cycles through them. That's it.
 
-## Features
+No layout rules. No modifier key chains. No conflicts with your apps. Just direct access to your windows.
 
-- **Application Launching**: Bind keys to launch your favorite applications
-- **Window Cycling**: Quickly cycle through windows of the same application
-- **Window Management**: Navigate and delete windows without touching the mouse
-- **Mouse Centering**: Automatically centers the mouse pointer when focusing windows
-- **Simple Configuration**: Easy-to-edit configuration file
+## How It Works
+
+Each function key (F1-F12) maps to one application:
+
+- **App not running** — launches it
+- **App running, not focused** — focuses its most recent window
+- **App running, already focused** — cycles to its next window
+
+Additional keys handle window management:
+
+- **Previous Window** — jump back to the last focused window (like Alt+Tab but instant)
+- **Cycle Other Windows** — cycle through windows that don't have an assigned key
+- **Close Window** — close the focused window
+
+Optionally, the mouse cursor centers on the focused window after each switch.
 
 ## Installation
 
-1. Clone this repository:
+1. Clone and install:
    ```
    git clone https://github.com/lcasta7/Glaunch.git
-   ```
-
-2. Install the extension:
-   ```
-   cd glaunch
+   cd Glaunch
    make install
    ```
 
-3. Restart GNOME Shell:
-   - Press Alt+F2, type 'r', press Enter (X11)
-   - Log out and log back in (Wayland)
+2. Restart GNOME Shell:
+   - **Wayland**: Log out and log back in
+   - **X11**: Press Alt+F2, type `r`, press Enter
 
-4. Enable the extension using GNOME Extensions app or gnome-extensions-app
+3. Enable the extension using the GNOME Extensions app
 
 ## Configuration
 
-Glaunch is configured via the GNOME Extensions preferences UI. Open it with:
+Open the preferences UI:
 
 ```
 gnome-extensions prefs glaunch@casta.dev
 ```
 
-### Settings
+### Shortcuts
 
-- **Custom Shortcuts**: Assign function keys (F1-F12) to launch applications
-- **Previous Window**: Key to switch to the previously focused window
-- **Cycle Other Windows**: Key to cycle through non-configured application windows
-- **Close Window**: Key to close the currently focused window
-- **Center Mouse on Focus**: Toggle to center mouse cursor when focusing windows
+Add shortcuts by clicking the "+" button. Select an application and a function key. Each key can only be assigned to one app.
 
-## Usage
+### Window Management
 
-- Press the configured keys to launch applications
-- When an application is already running, pressing its key will focus it
-- If multiple windows of the same application are open, repeatedly pressing the key will cycle through them
-- Use the win_prev key to switch to the previous window
-- Use the win_delete key to close the focused window
-- Use the win_other key to cycle through windows of non-configured applications
+- **Previous Window** — function key to jump to the last focused window (default: F4)
+- **Cycle Other Windows** — function key to cycle windows without a shortcut (default: F12)
+- **Close Window** — function key to close the focused window (default: F3)
+- **Center Mouse on Focus** — move the cursor to the center of the window on switch (default: on)
 
-## How It Works
+All window management keys can be set to "None" to disable them.
 
-Glaunch maintains collections of application windows grouped by their desktop names. When you press a shortcut key associated with an application:
+## Recommended Layout
 
-1. If the application is not running, it launches the application
-2. If the application is running with one window, it focuses that window
-3. If the application has multiple windows, it cycles through them
+Think of the function keys in zones:
 
-Additionally, the extension automatically centers the mouse pointer when switching between windows, making it easier to interact with the newly focused window.
+| Keys | Purpose |
+|------|---------|
+| F1-F4 | Window management |
+| F5-F8 | App-specific shortcuts (set in each app) |
+| F9-F11 | Your 3 most-used apps |
+| F12 | Cycle all other windows |
+
+### Window management (F1-F4)
+
+| Key | Action |
+|-----|--------|
+| F1  | Toggle maximize (set via GNOME keyboard settings) |
+| F2  | Screenshot (set via GNOME keyboard settings) |
+| F3  | Close window |
+| F4  | Switch to previous window |
+
+### App launching (F9-F11)
+
+| Key | App |
+|-----|-----|
+| F9  | Browser |
+| F10 | Editor |
+| F11 | Terminal |
+
+### Other windows (F12)
+
+F12 cycles through every window that doesn't have an assigned key. This covers apps you use occasionally without needing a dedicated binding.
+
+### App-specific shortcuts (F5-F8)
+
+F5-F8 are left unbound by Glaunch. Use them inside your apps for whatever you need — run/debug in your editor, refresh in your browser, etc. Since Glaunch doesn't claim these keys, there are no conflicts.
+
+With this layout, switching between your browser and editor is just F9/F10. No hunting through Alt+Tab lists.
 
 ## Requirements
 
-- GNOME Shell 46 or later
-- TypeScript
-
-## Contributing
-
-Contributions are welcome! Feel free to submit issues or pull requests.
+- GNOME Shell 46+
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Original Glaunch extension by lcasta7
+[GPL-2.0](LICENSE)

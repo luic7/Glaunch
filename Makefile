@@ -18,7 +18,7 @@ schemas/gschemas.compiled: schemas/org.gnome.shell.extensions.$(NAME).gschema.xm
 
 $(NAME).zip: dist/extension.js schemas/gschemas.compiled
 	@mkdir -p dist/schemas
-	@cp -r schemas/* dist/schemas/
+	@cp schemas/gschemas.compiled schemas/org.gnome.shell.extensions.$(NAME).gschema.xml dist/schemas/
 	@cp metadata.json dist/
 	@(cd dist && zip ../$(NAME).zip -9r .)
 
