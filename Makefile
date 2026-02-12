@@ -1,4 +1,4 @@
-NAME=glaunchv2
+NAME=glaunch
 DOMAIN=casta.dev
 UUID=$(NAME)@$(DOMAIN)
 

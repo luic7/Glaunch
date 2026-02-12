@@ -1,5 +1,5 @@
 {
-  "name": "glaunchv2",
+  "name": "glaunch",
   "version": "1.0.0",
   "type": "module",
   "sourceType": "module",
@@ -8,7 +8,7 @@
   "license": "LGPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lcasta7/glaunchv2.git"
+    "url": "git+https://github.com/lcasta7/Glaunch.git"
   },
   "author": "luis castaneda <luis@casta.dev>",
   "devDependencies": {

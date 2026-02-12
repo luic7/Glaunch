@@ -1,10 +1,10 @@
-# GlaunchV2
+# Glaunch
 
 A GNOME Shell extension for keyboard-driven window management and application launching with TypeScript.
 
 ## Overview
 
-GlaunchV2 is a rewrite of the original Glaunch extension that allows you to:
+Glaunch allows you to:
 
 - Launch applications with customizable keyboard shortcuts
 - Quickly navigate between windows of the same application
@@ -24,12 +24,12 @@ GlaunchV2 is a rewrite of the original Glaunch extension that allows you to:
 
 1. Clone this repository:
    ```
-   git clone https://github.com/yourusername/glaunchv2.git
+   git clone https://github.com/lcasta7/Glaunch.git
    ```
 
 2. Install the extension:
    ```
-   cd glaunchv2
+   cd glaunch
    make install
    ```
 
@@ -41,55 +41,19 @@ GlaunchV2 is a rewrite of the original Glaunch extension that allows you to:
 
 ## Configuration
 
-GlaunchV2 uses a simple configuration file located at `~/.config/glaunchv2/glaunch.conf`.
-
-If the file doesn't exist, a default configuration will be created with the following shortcuts:
+Glaunch is configured via the GNOME Extensions preferences UI. Open it with:
 
 ```
-# App Shortcuts
-# Apps
-launch f9 firefox-esr
-launch f10 code
-launch f11 gnome-terminal
-
-# Window Management
-win_prev f4
-win_other f12
-win_delete f3
-win_center_mouse
+gnome-extensions prefs glaunch@casta.dev
 ```
 
-### Configuration Format
+### Settings
 
-Each line in the configuration file follows one of these formats:
-
-- `launch <key> <app-name>`: Binds a key to launch or focus an application
-- `win_prev <key>`: Binds a key to switch to the previous window
-- `win_other <key>`: Binds a key to switch between non-configured application windows
-- `win_delete <key>`: Binds a key to close the focused window
-- `win_center_mouse`: Switch to turn on mouse centering on applications
-
-### Example Configuration
-
-```
-# Web Browser
-launch f9 firefox-esr
-
-# Code Editor
-launch f10 code
-
-# Terminal
-launch f11 gnome-terminal
-
-# Music Player
-launch f5 spotify
-
-# Window Management
-win_prev f4
-win_other f12
-win_delete f3
-win_center_mouse
-```
+- **Custom Shortcuts**: Assign function keys (F1-F12) to launch applications
+- **Previous Window**: Key to switch to the previously focused window
+- **Cycle Other Windows**: Key to cycle through non-configured application windows
+- **Close Window**: Key to close the currently focused window
+- **Center Mouse on Focus**: Toggle to center mouse cursor when focusing windows
 
 ## Usage
 
@@ -102,23 +66,13 @@ win_center_mouse
 
 ## How It Works
 
-GlaunchV2 maintains collections of application windows grouped by their desktop names. When you press a shortcut key associated with an application:
+Glaunch maintains collections of application windows grouped by their desktop names. When you press a shortcut key associated with an application:
 
 1. If the application is not running, it launches the application
 2. If the application is running with one window, it focuses that window
 3. If the application has multiple windows, it cycles through them
 
 Additionally, the extension automatically centers the mouse pointer when switching between windows, making it easier to interact with the newly focused window.
-
-## Differences from Original Glaunch
-
-GlaunchV2 is a complete rewrite of the original Glaunch extension with the following improvements:
-
-- Written in TypeScript for better type safety and maintainability
-- Improved window tracking and focus handling
-- Better error handling and logging
-- Automatic mouse pointer centering
-- More robust configuration parsing
 
 ## Requirements
 

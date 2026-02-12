@@ -22,7 +22,7 @@ export class AppCollection {
 
 	switchToApp(): void {
 		if (!this._head) {
-			console.warn('[GlaunchV2] Cannot switch to app: head is not defined');
+			console.warn('[Glaunch] Cannot switch to app: head is not defined');
 			return;
 		}
 		this._head.focus(this._centerMouse);
@@ -30,13 +30,12 @@ export class AppCollection {
 
 	storeApp(win: Meta.Window): void {
 		if (!win || !win.is_alive) {
-			console.warn('[GlaunchV2] Attempted to store an invalid window');
+			console.warn('[Glaunch] Attempted to store an invalid window');
 			return;
 		}
 
 		const index = this._col.findIndex(app => app.equals(win));
 		if (index !== -1) {
-			console.log(`[GlaunchV2] Window already exists in collection, switching to it instead of creating duplicate`);
 			this._hIndex = index;
 			this._head = this._col[this._hIndex];
 			this._head.focus(this._centerMouse);
@@ -52,7 +51,7 @@ export class AppCollection {
 
 	deleteApp(win: Meta.Window): void {
 		if (!win) {
-			console.warn('[GlaunchV2] Attempted to delete an invalid window');
+			console.warn('[Glaunch] Attempted to delete an invalid window');
 			return;
 		}
 
@@ -99,7 +98,7 @@ export class App {
 
 	focus(centerMouse: boolean): void {
 		if (!this._win || !this._win.is_alive) {
-			console.warn('[GlaunchV2] Cannot focus: window is not valid');
+			console.warn('[Glaunch] Cannot focus: window is not valid');
 			return;
 		}
 		this._win.raise_and_make_recent_on_workspace(this._win.get_workspace());

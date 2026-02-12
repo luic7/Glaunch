@@ -6,7 +6,7 @@ import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 import Config from "./config.js";
 import Launcher from "./launcher.js";
 
-export default class GlaunchV2 extends Extension {
+export default class Glaunch extends Extension {
 	private _config: Config | null = null;
 	private _settings: Gio.Settings | null = null;
 	private _launcher: Launcher | null = null;
@@ -67,8 +67,6 @@ export default class GlaunchV2 extends Extension {
 	private _reloadShortcuts() {
 		if (!this._settings) return;
 
-		console.debug("[GlaunchV2] Settings changed, reloading shortcuts...");
-
 		// Unbind all current keybindings
 		this._config?.entries.forEach((bind) => {
 			if (bind.key) {
@@ -79,8 +77,6 @@ export default class GlaunchV2 extends Extension {
 		// Reload config and launcher
 		this._config = new Config(this._settings);
 		this._launcher = new Launcher(this._config, this._settings);
-
-		console.debug("[GlaunchV2] Shortcuts reloaded");
 
 		// Refocus the Extensions preferences window
 		this._focusExtensionsWindow();
@@ -94,7 +90,6 @@ export default class GlaunchV2 extends Extension {
 			if (wmClass && (wmClass.includes("Extensions") || wmClass.includes("extension-prefs"))) {
 				win.raise_and_make_recent_on_workspace(win.get_workspace());
 				win.focus(global.get_current_time());
-				console.debug("[GlaunchV2] Refocused Extensions window");
 				return;
 			}
 		}

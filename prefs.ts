@@ -23,7 +23,7 @@ const FUNCTION_KEYS = [
 
 const FUNCTION_KEYS_WITH_NONE = ["None", ...FUNCTION_KEYS];
 
-export default class GlaunchV2Preferences extends ExtensionPreferences {
+export default class GlaunchPreferences extends ExtensionPreferences {
 	private _settings: Gio.Settings | null = null;
 
 	fillPreferencesWindow(window: Adw.PreferencesWindow): Promise<void> {

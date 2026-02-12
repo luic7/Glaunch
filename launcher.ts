@@ -25,7 +25,7 @@ export default class Launcher {
 			this._bindKeys(config);
 			this._apps = this._startUpMapping();
 		} catch (error) {
-			throw new Error(`[GlaunchV2] Error initializing launcher: ${error}`)
+			throw new Error(`[Glaunch] Error initializing launcher: ${error}`)
 		}
 	}
 
@@ -81,7 +81,7 @@ export default class Launcher {
 
 			return this._other;
 		} catch (error) {
-			console.warn(`[GlaunchV2] Error getting app ID for window: ${error}`);
+			console.warn(`[Glaunch] Error getting app ID for window: ${error}`);
 			return this._other;
 		}
 	}
@@ -95,15 +95,13 @@ export default class Launcher {
 			const appId = this._getAppIdForWindow(win);
 
 			if (this._apps.has(appId)) {
-				console.debug(`[GlaunchV2] Adding window to ${appId}`);
 				this._apps.get(appId)?.storeApp(win);
 			} else {
-				console.debug(`[GlaunchV2] Creating new collection for ${appId}`);
 				const app = new App(win);
 				this._apps.set(appId, new AppCollection(app, this._centerMouse));
 			}
 		} catch (error) {
-			console.warn(`[GlaunchV2] Error storing app: ${error}`);
+			console.warn(`[Glaunch] Error storing app: ${error}`);
 		}
 	}
 
@@ -114,16 +112,14 @@ export default class Launcher {
 			const appCol = this._apps.get(appId);
 
 			if (appCol) {
-				console.debug(`[GlaunchV2] Removing window from ${appId}`);
 				appCol.deleteApp(win);
 
 				if (appCol.size() === 0) {
-					console.debug(`[GlaunchV2] Removing empty collection: ${appId}`);
 					this._apps.delete(appId);
 				}
 			}
 		} catch (error) {
-			console.warn(`[GlaunchV2] Error deleting app: ${error}`);
+			console.warn(`[Glaunch] Error deleting app: ${error}`);
 		}
 	}
 
@@ -135,11 +131,11 @@ export default class Launcher {
 			const appId = this._getAppIdForWindow(win);
 			const appCol = this._apps.get(appId);
 
-			if (appCol && appCol.setHead(win)) {
-				console.debug(`[GlaunchV2] Promoted window to head for ${appId}`);
+			if (appCol) {
+				appCol.setHead(win);
 			}
 		} catch (error) {
-			console.warn(`[GlaunchV2] Error promoting window: ${error}`);
+			console.warn(`[Glaunch] Error promoting window: ${error}`);
 		}
 	}
 
@@ -147,25 +143,16 @@ export default class Launcher {
 		const normalizedAppId = this._normalizeAppId(appId);
 		const focusedAppId = this._getAppIdForWindow(global.display.focus_window);
 
-		console.debug(`[GlaunchV2] Handling app: ${normalizedAppId}`);
-		console.debug(`[GlaunchV2] Currently focused: ${focusedAppId}`);
-
 		if (focusedAppId === normalizedAppId && this._apps.has(normalizedAppId)) {
-			// Same app focused -> cycle to next window
-			console.debug(`[GlaunchV2] Cycling to next window`);
 			this._apps.get(normalizedAppId)?.goNext();
 		} else if (this._apps.has(normalizedAppId)) {
-			// App has windows but not focused -> switch to it
-			console.debug(`[GlaunchV2] Switching to app`);
 			this._apps.get(normalizedAppId)?.switchToApp();
 		} else {
-			// App not running -> launch it
-			console.debug(`[GlaunchV2] Launching new instance`);
 			const shellApp = this._appSystem.lookup_app(normalizedAppId);
 			if (shellApp) {
 				shellApp.activate();
 			} else {
-				console.error(`[GlaunchV2] Could not find app: ${normalizedAppId}`);
+				console.error(`[Glaunch] Could not find app: ${normalizedAppId}`);
 			}
 		}
 	}
@@ -196,7 +183,6 @@ export default class Launcher {
 					const appId = this._normalizeAppId(bind.app!);
 					if (appId !== this._other) {
 						this._boundedAppIds.add(appId);
-						console.debug(`[GlaunchV2] Bound app: ${appId}`);
 					}
 					break;
 
@@ -253,7 +239,7 @@ export default class Launcher {
 					);
 				}
 			} catch (error) {
-				console.warn(`[GlaunchV2] Error mapping window: ${error}`);
+				console.warn(`[Glaunch] Error mapping window: ${error}`);
 			}
 		});
 

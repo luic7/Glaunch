@@ -1,7 +1,7 @@
 
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.glaunchv2" path="/org/gnome/shell/extensions/glaunchv2/">
+  <schema id="org.gnome.shell.extensions.glaunch" path="/org/gnome/shell/extensions/glaunch/">
     <key name="f1" type="as">
 	  <default><![CDATA[['F1']]]></default>
     </key>

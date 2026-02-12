@@ -33,10 +33,9 @@ export default class Config {
 						key: shortcut.key.toLowerCase(),
 						app: shortcut.app,
 					});
-					console.debug(`[GlaunchV2] Loaded shortcut: ${shortcut.key} -> ${shortcut.app}`);
 				}
 			} catch (error) {
-				console.error(`[GlaunchV2] Error parsing shortcuts: ${error}`);
+				console.error(`[Glaunch] Error parsing shortcuts: ${error}`);
 			}
 		}
 
