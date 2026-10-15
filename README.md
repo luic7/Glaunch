@@ -35,9 +35,7 @@ Optionally, the mouse cursor centers on the focused window after each switch.
    make install
    ```
 
-2. Restart GNOME Shell:
-   - **Wayland**: Log out and log back in
-   - **X11**: Press Alt+F2, type `r`, press Enter
+2. Log out and log back in to restart GNOME Shell
 
 3. Enable the extension using the GNOME Extensions app
 
@@ -51,14 +49,16 @@ gnome-extensions prefs glaunch@casta.dev
 
 ### Shortcuts
 
-Add shortcuts by clicking the "+" button. Select an application and a function key. Each key can only be assigned to one app.
+Add a shortcut with **Add Shortcut…**: choose an app and a function key. Click a shortcut to change its app or key, or to remove it; a removal can be undone right after.
+
+Each key can only be assigned once, across app shortcuts and window management keys. Keys that are already taken are shown with what they're assigned to, and shortcuts whose app is no longer installed are flagged.
 
 ### Window Management
 
 - **Previous Window** — function key to jump to the last focused window (default: F4)
 - **Cycle Other Windows** — function key to cycle windows without a shortcut (default: F12)
 - **Close Window** — function key to close the focused window (default: F3)
-- **Center Mouse on Focus** — move the cursor to the center of the window on switch (default: on)
+- **Center Pointer on Focus** — move the pointer to the center of the window on switch (default: on)
 
 All window management keys can be set to "None" to disable them.
 
@@ -102,7 +102,7 @@ With this layout, switching between your browser and editor is just F9/F10. No h
 
 ## Requirements
 
-- GNOME Shell 46+
+- GNOME Shell 50
 
 ## License
 
