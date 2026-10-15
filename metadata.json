@@ -4,7 +4,7 @@
   "uuid": "glaunch@casta.dev",
   "url": "https://github.com/lcasta7/Glaunch",
   "version": 1,
-  "shell-version": ["46", "47", "48"],
+  "shell-version": ["46", "47", "48", "49", "50"],
   "gettext-domain": "glaunch@casta.dev",
   "settings-schema": "org.gnome.shell.extensions.glaunch"
 }
