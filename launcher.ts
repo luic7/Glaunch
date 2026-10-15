@@ -6,84 +6,45 @@ import Shell from "gi://Shell";
 import Config from "./config.js";
 import { App, AppCollection } from "./apps.js";
 
+// Shell.App.get_app_info() returns a GDesktopAppInfo, which the installed GIR
+// typings don't describe (it moved to GioUnix), so declare the part we use.
+interface DesktopAppInfo {
+	get_startup_wm_class(): string | null;
+}
+
 export default class Launcher {
-	private _apps: Map<string, AppCollection>;
+	private _apps = new Map<string, AppCollection>();
 	private _settings: Gio.Settings;
 	private _boundedAppIds = new Set<string>();
+	// Lowercased StartupWMClass -> ID of the bound app that declares it.
+	private _boundedWmClasses = new Map<string, string>();
 	private _boundedKeys = new Set<string>();
+	// Apps launched by their key whose first window hasn't appeared yet.
+	private _launchedAppIds = new Set<string>();
 	private _other = "other";
-	private _centerMouse = false;
+	private _centerMouse: boolean;
 	private _windowTracker: Shell.WindowTracker;
 	private _appSystem: Shell.AppSystem;
 
 	constructor(config: Config, settings: Gio.Settings) {
 		this._settings = settings;
+		this._centerMouse = config.winCenterMouse;
 		this._windowTracker = Shell.WindowTracker.get_default();
 		this._appSystem = Shell.AppSystem.get_default();
 
 		try {
 			this._bindKeys(config);
-			this._apps = this._startUpMapping();
+			this._startUpMapping();
 		} catch (error) {
 			throw new Error(`[Glaunch] Error initializing launcher: ${error}`)
 		}
 	}
 
-	/**
-	 * Normalizes app identifier to desktop file ID format
-	 * "firefox_firefox" -> "firefox_firefox.desktop"
-	 * "firefox_firefox.desktop" -> "firefox_firefox.desktop"
-	 */
-	private _normalizeAppId(appId: string): string {
-		if (appId === this._other) return this._other;
-		return appId.endsWith('.desktop') ? appId : `${appId}.desktop`;
-	}
-
-	/**
-	 * Normalizes app name by removing parenthetical suffixes
-	 * "Emacs (Client)" -> "Emacs"
-	 */
-	private _normalizeAppName(appName: string): string {
-		return appName.replace(/\s*\([^)]*\)/, '');
-	}
-
-	/**
-	 * Gets the app ID (desktop file ID) for a window
-	 * Returns "other" if window doesn't belong to a bound app
-	 */
-	private _getAppIdForWindow(win: Meta.Window | null): string {
-		if (!win) return this._other;
-
-		try {
-			const shellApp = this._windowTracker.get_window_app(win);
-			if (!shellApp) return this._other;
-
-			let appId = shellApp.get_id();
-			if (!appId) return this._other;
-
-			// Normalize the app ID by removing parentheticals
-			// This handles cases like emacsclient showing as "Emacs (Client)"
-			const normalizedId = this._normalizeAppName(appId);
-
-			// Check both the original and normalized app ID
-			if (this._boundedAppIds.has(appId)) {
-				return appId;
-			}
-
-			// Check if any bound app matches the normalized name
-			for (const boundId of this._boundedAppIds) {
-				const normalizedBoundId = this._normalizeAppName(boundId);
-				if (normalizedId.toLowerCase().includes(normalizedBoundId.toLowerCase().replace('.desktop', '')) ||
-					normalizedBoundId.toLowerCase().includes(normalizedId.toLowerCase().replace('.desktop', ''))) {
-					return boundId;
-				}
-			}
-
-			return this._other;
-		} catch (error) {
-			console.warn(`[Glaunch] Error getting app ID for window: ${error}`);
-			return this._other;
+	destroy() {
+		for (const key of this._boundedKeys) {
+			Main.wm.removeKeybinding(key);
 		}
+		this._boundedKeys.clear();
 	}
 
 	storeApp(win: Meta.Window | null) {
@@ -95,14 +56,7 @@ export default class Launcher {
 		if (win.get_window_type() !== Meta.WindowType.NORMAL) return;
 
 		try {
-			const appId = this._getAppIdForWindow(win);
-
-			if (this._apps.has(appId)) {
-				this._apps.get(appId)?.storeApp(win);
-			} else {
-				const app = new App(win);
-				this._apps.set(appId, new AppCollection(app, this._centerMouse));
-			}
+			this._addWindow(win);
 		} catch (error) {
 			console.warn(`[Glaunch] Error storing app: ${error}`);
 		}
@@ -142,21 +96,53 @@ export default class Launcher {
 		}
 	}
 
-	private _handleApp(appId: string) {
-		const normalizedAppId = this._normalizeAppId(appId);
-		const focusedAppId = this._getAppIdForWindow(global.display.focus_window);
+	private _bindKeys(config: Config) {
+		for (const { key, app } of config.shortcuts) {
+			this._bindKey(key, () => this._handleApp(app));
+			this._addBoundApp(app);
+		}
 
-		if (focusedAppId === normalizedAppId && this._apps.has(normalizedAppId)) {
-			this._apps.get(normalizedAppId)?.goNext();
-		} else if (this._apps.has(normalizedAppId)) {
-			this._apps.get(normalizedAppId)?.switchToApp();
-		} else {
-			const shellApp = this._appSystem.lookup_app(normalizedAppId);
+		if (config.winPrevKey) {
+			this._bindKey(config.winPrevKey, () => this._goToPrev());
+		}
+		if (config.winOtherKey) {
+			this._bindKey(config.winOtherKey, () => this._handleApp(this._other));
+		}
+		if (config.winDeleteKey) {
+			this._bindKey(config.winDeleteKey, () => this._deleteWin());
+		}
+	}
+
+	private _bindKey(key: string, handler: () => void) {
+		Main.wm.addKeybinding(
+			key,
+			this._settings,
+			Meta.KeyBindingFlags.NONE,
+			Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+			handler
+		);
+		this._boundedKeys.add(key);
+	}
+
+	private _handleApp(app: string) {
+		const appId = this._normalizeAppId(app);
+		const focusedAppId = this._getAppIdForWindow(global.display.focus_window);
+		const appCol = this._apps.get(appId);
+
+		if (!appCol) {
+			const shellApp = this._appSystem.lookup_app(appId);
 			if (shellApp) {
 				shellApp.activate();
+				if (this._centerMouse) {
+					this._launchedAppIds.add(appId);
+				}
 			} else {
-				console.error(`[Glaunch] Could not find app: ${normalizedAppId}`);
+				console.error(`[Glaunch] Could not find app: ${appId}`);
 			}
+		} else if (focusedAppId !== appId) {
+			appCol.switchToApp();
+		} else {
+			appCol.goNext();
 		}
 	}
 
@@ -170,93 +156,91 @@ export default class Launcher {
 		global.display.focus_window?.delete(global.get_current_time());
 	}
 
-	destroy() {
-		for (const key of this._boundedKeys) {
-			Main.wm.removeKeybinding(key);
-		}
-		this._boundedKeys.clear();
-	}
-
-	private _bindKeys(config: Config) {
-		config.entries.forEach((bind) => {
-			switch (bind.act) {
-				case "launch":
-					Main.wm.addKeybinding(
-						bind.key!,
-						this._settings,
-						Meta.KeyBindingFlags.NONE,
-						Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
-						() => this._handleApp(bind.app!)
-					);
-					this._boundedKeys.add(bind.key!);
-
-					// Store the normalized app ID in our bounded set
-					const appId = this._normalizeAppId(bind.app!);
-					if (appId !== this._other) {
-						this._boundedAppIds.add(appId);
-					}
-					break;
-
-				case "win_other":
-					Main.wm.addKeybinding(
-						bind.key!,
-						this._settings,
-						Meta.KeyBindingFlags.NONE,
-						Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
-						() => this._handleApp(this._other)
-					);
-					this._boundedKeys.add(bind.key!);
-					break;
-
-				case "win_delete":
-					Main.wm.addKeybinding(
-						bind.key!,
-						this._settings,
-						Meta.KeyBindingFlags.NONE,
-						Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
-						() => this._deleteWin()
-					);
-					this._boundedKeys.add(bind.key!);
-					break;
-
-				case "win_prev":
-					Main.wm.addKeybinding(
-						bind.key!,
-						this._settings,
-						Meta.KeyBindingFlags.NONE,
-						Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
-						() => this._goToPrev()
-					);
-					this._boundedKeys.add(bind.key!);
-					break;
-
-				case "win_center_mouse":
-					this._centerMouse = true;
-					break;
-			}
-		});
-	}
-
-	private _startUpMapping(): Map<string, AppCollection> {
-		const openedAppsMap = new Map<string, AppCollection>();
+	private _startUpMapping() {
 		const openedApps = global.display.get_tab_list(Meta.TabList.NORMAL, null);
 
 		openedApps.forEach(window => {
 			try {
-				const appId = this._getAppIdForWindow(window);
-				if (openedAppsMap.has(appId)) {
-					openedAppsMap.get(appId)!.storeApp(window);
-				} else {
-					openedAppsMap.set(
-						appId,
-						new AppCollection(new App(window), this._centerMouse)
-					);
-				}
+				this._addWindow(window);
 			} catch (error) {
 				console.warn(`[Glaunch] Error mapping window: ${error}`);
 			}
 		});
+	}
 
-		return openedAppsMap;
+	private _addWindow(win: Meta.Window) {
+		const appId = this._getAppIdForWindow(win);
+		const appCol = this._apps.get(appId);
+
+		if (appCol) {
+			appCol.storeApp(win);
+			return;
+		}
+
+		const newCol = new AppCollection(new App(win), this._centerMouse);
+		this._apps.set(appId, newCol);
+
+		// Unlike storeApp(), a new collection doesn't focus its first window, so
+		// focus (and center the mouse on) the window of an app we just launched.
+		if (this._launchedAppIds.delete(appId)) {
+			newCol.switchToApp();
+		}
+	}
+
+	private _addBoundApp(app: string) {
+		const appId = this._normalizeAppId(app);
+		if (appId === this._other) return;
+
+		this._boundedAppIds.add(appId);
+
+		const appInfo = this._appSystem.lookup_app(appId)?.get_app_info() as DesktopAppInfo | null;
+		const wmClass = appInfo?.get_startup_wm_class()?.toLowerCase();
+		// If two bound apps declare the same class, the first shortcut wins.
+		if (wmClass && !this._boundedWmClasses.has(wmClass)) {
+			this._boundedWmClasses.set(wmClass, appId);
+		}
+	}
+
+	/**
+	 * Returns the ID of the bound app a window belongs to, or "other".
+	 */
+	private _getAppIdForWindow(win: Meta.Window | null): string {
+		if (!win) return this._other;
+
+		try {
+			const appId = this._windowTracker.get_window_app(win)?.get_id();
+			if (appId && this._boundedAppIds.has(appId)) {
+				return appId;
+			}
+
+			// Several desktop files can describe the same windows: emacs.desktop and
+			// emacsclient.desktop both declare StartupWMClass=Emacs, and GNOME may
+			// attribute a frame opened with emacsclient to emacs.desktop. So also
+			// match the window's WM class against the classes the bound apps
+			// declare, ignoring case ("Emacs" on X11, "emacs" on Wayland).
+			for (const wmClass of [win.get_wm_class(), win.get_wm_class_instance()]) {
+				if (!wmClass) continue;
+
+				const boundAppId = this._boundedWmClasses.get(wmClass.toLowerCase());
+				if (boundAppId) {
+					return boundAppId;
+				}
+			}
+
+			return this._other;
+		} catch (error) {
+			console.warn(`[Glaunch] Error getting app ID for window: ${error}`);
+			return this._other;
+		}
+	}
+
+	/**
+	 * Normalizes app identifier to desktop file ID format
+	 * "firefox_firefox" -> "firefox_firefox.desktop"
+	 * "firefox_firefox.desktop" -> "firefox_firefox.desktop"
+	 */
+	private _normalizeAppId(appId: string): string {
+		if (appId === this._other) return this._other;
+		return appId.endsWith('.desktop') ? appId : `${appId}.desktop`;
 	}
 }
