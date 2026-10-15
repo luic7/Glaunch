@@ -1,65 +1,42 @@
 import Gio from "gi://Gio";
 
-interface ShortcutConfig {
-	app: string;
+// An entry of the "shortcuts" setting, which prefs.ts stores as a JSON array
+// of {app, key, name}.
+interface Shortcut {
 	key: string;
-	name: string;
-}
-
-export interface ConfigEntry {
-	act: string;
-	key?: string;
-	app?: string;
+	app: string;
 }
 
 export default class Config {
-	entries: ConfigEntry[];
+	shortcuts: Shortcut[];
+	// Function keys for the window actions; empty when set to "None".
+	winPrevKey: string;
+	winOtherKey: string;
+	winDeleteKey: string;
+	winCenterMouse: boolean;
 
 	constructor(settings: Gio.Settings) {
-		this.entries = this._loadFromSettings(settings);
+		this.shortcuts = this._readShortcuts(settings);
+		this.winPrevKey = settings.get_string("win-prev-key").toLowerCase();
+		this.winOtherKey = settings.get_string("win-other-key").toLowerCase();
+		this.winDeleteKey = settings.get_string("win-delete-key").toLowerCase();
+		this.winCenterMouse = settings.get_boolean("win-center-mouse");
 	}
 
-	private _loadFromSettings(settings: Gio.Settings): ConfigEntry[] {
-		const config: ConfigEntry[] = [];
+	private _readShortcuts(settings: Gio.Settings): Shortcut[] {
+		const shortcuts: Shortcut[] = [];
 
-		// Load app shortcuts from GSettings
-		const shortcutsJson = settings.get_string("shortcuts") ?? "";
+		const shortcutsJson = settings.get_string("shortcuts");
 		if (shortcutsJson) {
 			try {
-				const shortcuts = JSON.parse(shortcutsJson) as ShortcutConfig[];
-				for (const shortcut of shortcuts) {
-					config.push({
-						act: "launch",
-						key: shortcut.key.toLowerCase(),
-						app: shortcut.app,
-					});
+				for (const shortcut of JSON.parse(shortcutsJson) as Shortcut[]) {
+					shortcuts.push({ key: shortcut.key.toLowerCase(), app: shortcut.app });
 				}
 			} catch (error) {
 				console.error(`[Glaunch] Error parsing shortcuts: ${error}`);
 			}
 		}
 
-		// Add window management keybindings from settings
-		const winPrevKey = settings.get_string("win-prev-key") ?? "";
-		if (winPrevKey) {
-			config.push({ act: "win_prev", key: winPrevKey.toLowerCase() });
-		}
-
-		const winOtherKey = settings.get_string("win-other-key") ?? "";
-		if (winOtherKey) {
-			config.push({ act: "win_other", key: winOtherKey.toLowerCase() });
-		}
-
-		const winDeleteKey = settings.get_string("win-delete-key") ?? "";
-		if (winDeleteKey) {
-			config.push({ act: "win_delete", key: winDeleteKey.toLowerCase() });
-		}
-
-		const winCenterMouse = settings.get_boolean("win-center-mouse");
-		if (winCenterMouse) {
-			config.push({ act: "win_center_mouse" });
-		}
-
-		return config;
+		return shortcuts;
 	}
 }
