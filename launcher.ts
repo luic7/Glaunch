@@ -1,5 +1,6 @@
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import Gio from "gi://Gio";
+import GLib from "gi://GLib";
 import Meta from "gi://Meta";
 import Shell from "gi://Shell";
 
@@ -10,6 +11,12 @@ import { App, AppCollection } from "./apps.js";
 // typings don't describe (it moved to GioUnix), so declare the part we use.
 interface DesktopAppInfo {
 	get_startup_wm_class(): string | null;
+}
+
+interface MaximizableWindow {
+	is_maximized(): boolean;
+	maximize(): void;
+	unmaximize(): void;
 }
 
 export default class Launcher {
@@ -23,6 +30,9 @@ export default class Launcher {
 	private _launchedAppIds = new Set<string>();
 	private _other = "other";
 	private _centerMouse: boolean;
+	private _resizingWin: Meta.Window | null = null;
+	private _sizeChangedId = 0;
+	private _resizeTimeoutId = 0;
 	private _windowTracker: Shell.WindowTracker;
 	private _appSystem: Shell.AppSystem;
 
@@ -45,6 +55,11 @@ export default class Launcher {
 			Main.wm.removeKeybinding(key);
 		}
 		this._boundedKeys.clear();
+
+		if (this._centerMouse) {
+			Meta.keybindings_set_custom_handler("toggle-maximized", null);
+		}
+		this._cancelCenterMouse();
 	}
 
 	storeApp(win: Meta.Window | null) {
@@ -111,6 +126,14 @@ export default class Launcher {
 		if (config.winDeleteKey) {
 			this._bindKey(config.winDeleteKey, () => this._deleteWin());
 		}
+
+		if (config.winCenterMouse) {
+			Main.wm.setCustomKeybindingHandler(
+				"toggle-maximized",
+				Shell.ActionMode.NORMAL,
+				(_display, win) => this._toggleMaximized(win)
+			);
+		}
 	}
 
 	private _bindKey(key: string, handler: () => void) {
@@ -154,6 +177,52 @@ export default class Launcher {
 
 	private _deleteWin() {
 		global.display.focus_window?.delete(global.get_current_time());
+	}
+
+	private _toggleMaximized(win: Meta.Window | null) {
+		if (!win) return;
+
+		const maxWin = win as unknown as MaximizableWindow;
+		const maximized = maxWin.is_maximized();
+		if (!maximized && !win.can_maximize()) return;
+
+		this._centerMouseAfterResize(win);
+
+		if (maximized) {
+			maxWin.unmaximize();
+		} else {
+			maxWin.maximize();
+		}
+	}
+
+	private _centerMouseAfterResize(win: Meta.Window) {
+		this._cancelCenterMouse();
+
+		const center = () => {
+			this._cancelCenterMouse();
+			if (win === global.display.focus_window) {
+				new App(win).centerMouse();
+			}
+		};
+
+		this._resizingWin = win;
+		this._sizeChangedId = win.connect("size-changed", center);
+		this._resizeTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+			this._resizeTimeoutId = 0;
+			center();
+			return GLib.SOURCE_REMOVE;
+		});
+	}
+
+	private _cancelCenterMouse() {
+		if (this._resizingWin) {
+			this._resizingWin.disconnect(this._sizeChangedId);
+			this._resizingWin = null;
+		}
+		if (this._resizeTimeoutId) {
+			GLib.source_remove(this._resizeTimeoutId);
+			this._resizeTimeoutId = 0;
+		}
 	}
 
 	private _startUpMapping() {

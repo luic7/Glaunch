@@ -24,7 +24,7 @@ Additional keys handle window management:
 - **Cycle Other Windows** — cycle through windows that don't have an assigned key
 - **Close Window** — close the focused window
 
-Optionally, the mouse cursor centers on the focused window after each switch.
+Optionally, the mouse cursor centers on the focused window after each switch, and after toggling its maximization with GNOME's "Toggle maximization state" shortcut.
 
 ## Installation
 
@@ -58,7 +58,7 @@ Each key can only be assigned once, across app shortcuts and window management k
 - **Previous Window** — function key to jump to the last focused window (default: F4)
 - **Cycle Other Windows** — function key to cycle windows without a shortcut (default: F12)
 - **Close Window** — function key to close the focused window (default: F3)
-- **Center Pointer on Focus** — move the pointer to the center of the window on switch (default: on)
+- **Center Pointer on Focus** — move the pointer to the center of the window on switch, and after toggling its maximization (default: on)
 
 All window management keys can be set to "None" to disable them.
 

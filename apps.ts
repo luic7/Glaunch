@@ -104,7 +104,7 @@ export class App {
 		}
 		this._win.raise_and_make_recent_on_workspace(this._win.get_workspace());
 		if (centerMouse) {
-			this._centerMouse();
+			this.centerMouse();
 		}
 		this._win.focus(global.get_current_time());
 	}
@@ -113,7 +113,7 @@ export class App {
 		return win === this._win;
 	}
 
-	private _centerMouse(): void {
+	centerMouse(): void {
 		if (!this._win || !this._win.is_alive) {
 			return;
 		}

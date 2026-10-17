@@ -28,7 +28,7 @@
     <key name="win-center-mouse" type="b">
       <default>true</default>
       <summary>Center mouse on focus</summary>
-      <description>Whether to center the mouse cursor when focusing a window</description>
+      <description>Whether to center the mouse cursor when focusing a window or toggling its maximization</description>
     </key>
 
     <!-- Function keys for keybinding registration -->

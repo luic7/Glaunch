@@ -254,7 +254,7 @@ export default class GlaunchPreferences extends ExtensionPreferences {
 		// its own group like the Super key switch in Settings.
 		const centerMouseRow = new Adw.SwitchRow({
 			title: "Center Pointer on Focus",
-			subtitle: "Move the pointer to the center of a window when switching to it",
+			subtitle: "Move the pointer to the center of a window when switching to it or toggling its maximization",
 		});
 		this._settings.bind("win-center-mouse", centerMouseRow, "active", Gio.SettingsBindFlags.DEFAULT);
 		const centerMouseGroup = new Adw.PreferencesGroup();
@@ -263,6 +263,13 @@ export default class GlaunchPreferences extends ExtensionPreferences {
 
 		window.add(page);
 		this._refresh();
+
+		// The default size cuts off the last options, so grow the window to fit
+		// the page. GTK still keeps it within the screen, and the page scrolls
+		// when there are too many shortcuts.
+		const [width, height] = window.get_default_size();
+		const [, naturalHeight] = window.measure(Gtk.Orientation.VERTICAL, width);
+		window.set_default_size(width, Math.max(height, naturalHeight));
 
 		window.connect('close-request', () => {
 			this._settings = null;
