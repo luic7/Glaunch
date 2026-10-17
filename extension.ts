@@ -1,80 +1,85 @@
 import Gio from "gi://Gio";
 import Meta from "gi://Meta";
-import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
 import Config from "./config.js";
 import Launcher from "./launcher.js";
 
+// Settings edited in the preferences window. Changing any of them rebuilds the
+// launcher, so the new bindings apply without restarting GNOME Shell.
+const PREFS_KEYS = ["shortcuts", "win-prev-key", "win-other-key", "win-delete-key", "win-center-mouse"];
+
 export default class Glaunch extends Extension {
-	private _config: Config | null = null;
 	private _settings: Gio.Settings | null = null;
 	private _launcher: Launcher | null = null;
-	private _signalHandlers: number[] = [];
-	private _displaySignalHandlers: number[] = [];
-	private _settingsChangedIds: number[] = [];
+	private _windowManagerSignalIds: number[] = [];
+	private _displaySignalIds: number[] = [];
+	private _settingsSignalIds: number[] = [];
 
 	enable() {
 		this._settings = this.getSettings();
-		this._config = new Config(this._settings);
-		this._launcher = new Launcher(this._config, this._settings);
+		this._launcher = new Launcher(new Config(this._settings), this._settings);
 
-		this._signalHandlers.push(
+		this._windowManagerSignalIds.push(
 			global.window_manager.connect("map", (_, win: Meta.WindowActor) => {
 				this._launcher?.storeApp(win.get_meta_window())
 			})
 		);
-		this._signalHandlers.push(
+		this._windowManagerSignalIds.push(
 			global.window_manager.connect("destroy", (_, win: Meta.WindowActor) => {
 				this._launcher?.deleteApp(win.get_meta_window());
 			})
 		);
 
-		this._displaySignalHandlers.push(
+		this._displaySignalIds.push(
 			global.display.connect("notify::focus-window", () => {
 				this._launcher?.promoteWindow(global.display.focus_window);
 			})
 		);
 
-		// Listen for settings changes to reload keybindings
-		this._settingsChangedIds.push(
-			this._settings.connect("changed::shortcuts", () => {
-				this._reloadShortcuts();
-			})
-		);
-		this._settingsChangedIds.push(
-			this._settings.connect("changed::win-prev-key", () => {
-				this._reloadShortcuts();
-			})
-		);
-		this._settingsChangedIds.push(
-			this._settings.connect("changed::win-other-key", () => {
-				this._reloadShortcuts();
-			})
-		);
-		this._settingsChangedIds.push(
-			this._settings.connect("changed::win-delete-key", () => {
-				this._reloadShortcuts();
-			})
-		);
-		this._settingsChangedIds.push(
-			this._settings.connect("changed::win-center-mouse", () => {
-				this._reloadShortcuts();
-			})
-		);
+		for (const key of PREFS_KEYS) {
+			this._settingsSignalIds.push(
+				this._settings.connect(`changed::${key}`, () => {
+					this._reloadShortcuts();
+				})
+			);
+		}
+	}
+
+	disable() {
+		this._windowManagerSignalIds.forEach(id => {
+			global.window_manager.disconnect(id);
+		});
+		this._windowManagerSignalIds = [];
+
+		this._displaySignalIds.forEach(id => {
+			global.display.disconnect(id);
+		});
+		this._displaySignalIds = [];
+
+		this._settingsSignalIds.forEach(id => {
+			this._settings?.disconnect(id);
+		});
+		this._settingsSignalIds = [];
+
+		this._launcher?.destroy();
+
+		this._settings = null;
+		this._launcher = null;
 	}
 
 	private _reloadShortcuts() {
 		if (!this._settings) return;
 
 		this._launcher?.destroy();
-
-		this._config = new Config(this._settings);
-		this._launcher = new Launcher(this._config, this._settings);
+		this._launcher = new Launcher(new Config(this._settings), this._settings);
 
 		this._focusExtensionsWindow();
 	}
 
+	// The new Launcher re-maps the open windows, and AppCollection.storeApp()
+	// focuses windows as it adds them, which can take focus away from the
+	// preferences window the user is editing.
 	private _focusExtensionsWindow() {
 		const windows = global.display.get_tab_list(Meta.TabList.NORMAL, null);
 		for (const win of windows) {
@@ -86,29 +91,5 @@ export default class Glaunch extends Extension {
 				return;
 			}
 		}
-	}
-
-	disable() {
-		this._signalHandlers.forEach(id => {
-			global.window_manager.disconnect(id);
-		});
-		this._signalHandlers = [];
-
-		this._displaySignalHandlers.forEach(id => {
-			global.display.disconnect(id);
-		});
-		this._displaySignalHandlers = [];
-
-		// Disconnect settings change handlers
-		this._settingsChangedIds.forEach(id => {
-			this._settings?.disconnect(id);
-		});
-		this._settingsChangedIds = [];
-
-		this._launcher?.destroy();
-
-		this._settings = null;
-		this._config = null;
-		this._launcher = null;
 	}
 }
