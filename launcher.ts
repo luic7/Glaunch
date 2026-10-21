@@ -84,6 +84,9 @@ export default class Launcher {
 			const appCol = this._apps.get(appId);
 
 			if (appCol) {
+				if (win === global.display.focus_window) {
+					this._goToPrev(win);
+				}
 				appCol.deleteApp(win);
 
 				if (appCol.size() === 0) {
@@ -169,10 +172,12 @@ export default class Launcher {
 		}
 	}
 
-	private _goToPrev() {
+	private _goToPrev(from: Meta.Window | null = global.display.focus_window) {
 		const mruWindows = global.display.get_tab_list(Meta.TabList.NORMAL, null);
-		if (mruWindows.length < 2) return;
-		new App(mruWindows[1]).focus(this._centerMouse);
+		const prev = mruWindows.find(w => w !== from);
+		if (prev) {
+			new App(prev).focus(this._centerMouse);
+		}
 	}
 
 	private _deleteWin() {
